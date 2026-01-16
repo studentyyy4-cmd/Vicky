@@ -1,0 +1,163 @@
+# LEARNING ANALYTICS PROJECT – PRACTICE TEMPLATE
+# (Synthetic Dataset – DO NOT SUBMIT THIS VERSION)
+# MAS8600 / MAS8505
+
+
+
+# SECTION 1: SETUP
+
+library(tidyverse)
+
+set.seed(123)
+
+
+# SECTION 2: SYNTHETIC DATA CREATION
+
+
+n_learners <- 300
+
+# Enrolments data
+enrolments <- tibble(
+  learner_id = 1:n_learners,
+  completed = sample(
+    c("Yes", "No"),
+    n_learners,
+    replace = TRUE,
+    prob = c(0.45, 0.55)
+  )
+)
+
+# Step activity data
+step_activity <- enrolments %>%
+  mutate(
+    steps_completed = ifelse(
+      completed == "Yes",
+      rpois(n_learners, lambda = 35),
+      rpois(n_learners, lambda = 12)
+    )
+  )
+
+# Quiz performance data
+quiz_results <- step_activity %>%
+  mutate(
+    quiz_score = round(
+      pmin(100, steps_completed * runif(n_learners, 1.2, 2.0)),
+      1
+    )
+  )
+
+# Sentiment survey data
+sentiment <- enrolments %>%
+  mutate(
+    sentiment_score = ifelse(
+      completed == "Yes",
+      rnorm(n_learners, mean = 4.0, sd = 0.6),
+      rnorm(n_learners, mean = 2.8, sd = 0.7)
+    )
+  )
+
+
+# CRISP-DM CYCLE 1: LEARNER ENGAGEMENT
+
+
+# ---- Numerical Results ----
+engagement_summary <- step_activity %>%
+  group_by(completed) %>%
+  summarise(
+    average_steps = mean(steps_completed),
+    median_steps = median(steps_completed),
+    sd_steps = sd(steps_completed),
+    .groups = "drop"
+  )
+
+print(engagement_summary)
+
+# ---- Graph 1: Engagement vs Completion ----
+ggplot(step_activity, aes(x = completed, y = steps_completed, fill = completed)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Learner Engagement by Completion Status",
+    x = "Course Completion",
+    y = "Number of Steps Completed"
+  ) +
+  theme_minimal()
+
+# ---- Graph 2: Distribution of Engagement ----
+ggplot(step_activity, aes(x = steps_completed)) +
+  geom_histogram(
+    binwidth = 5,
+    fill = "steelblue",
+    color = "white"
+  ) +
+  labs(
+    title = "Distribution of Learner Engagement",
+    x = "Steps Completed",
+    y = "Number of Learners"
+  ) +
+  theme_minimal()
+
+
+# CRISP-DM CYCLE 2: PERFORMANCE AND SENTIMENT
+
+
+# Join datasets (clean join – no duplicated columns)
+performance_data <- quiz_results %>%
+  left_join(
+    sentiment %>% select(learner_id, sentiment_score),
+    by = "learner_id"
+  )
+
+# ---- Numerical Results ----
+performance_summary <- performance_data %>%
+  group_by(completed) %>%
+  summarise(
+    average_quiz_score = mean(quiz_score),
+    average_sentiment = mean(sentiment_score),
+    engagement_performance_correlation = cor(
+      steps_completed,
+      quiz_score
+    ),
+    .groups = "drop"
+  )
+
+print(performance_summary)
+
+# ---- Graph 1: Engagement vs Quiz Performance ----
+ggplot(performance_data, aes(x = steps_completed, y = quiz_score)) +
+  geom_point(alpha = 0.6, color = "darkgreen") +
+  geom_smooth(
+    method = "lm",
+    se = FALSE,
+    color = "black"
+  ) +
+  labs(
+    title = "Relationship Between Engagement and Quiz Performance",
+    x = "Steps Completed",
+    y = "Quiz Score"
+  ) +
+  theme_minimal()
+
+# ---- Graph 2: Sentiment vs Completion ----
+ggplot(performance_data, aes(x = completed, y = sentiment_score, fill = completed)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Learner Sentiment by Completion Status",
+    x = "Course Completion",
+    y = "Sentiment Score"
+  ) +
+  theme_minimal()
+
+
+# END OF SCRIPT
+
+
+
+# ==========================================
+# EXPORT SYNTHETIC DATASETS
+# ==========================================
+
+write_csv(enrolments, "enrolments_synthetic.csv")
+write_csv(step_activity, "step_activity_synthetic.csv")
+write_csv(quiz_results, "quiz_results_synthetic.csv")
+write_csv(sentiment, "sentiment_synthetic.csv")
+write_csv(performance_data, "performance_data_synthetic.csv")
